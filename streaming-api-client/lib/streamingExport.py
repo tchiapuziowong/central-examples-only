@@ -35,6 +35,8 @@ from proto.audit_pb2 import audit_message
 from proto.location_pb2 import stream_location
 from proto.security_pb2 import RapidsStreamingEvent
 
+import base64
+
 threadLock = threading.Lock()
 
 class Decoder():
@@ -156,8 +158,33 @@ class locationExport():
         """
         streaming_data = self.decoder.decodeData(data)
         # Add Your code here to process data and handle transport/storage
-        if self.db_conn:
+        byte_mac = base64.b64decode(streaming_data['data']['sta_eth_mac']['addr'])       
+        readable_mac = ':'.join('%02x' % byte for byte in byte_mac)
+        streaming_data['data']['sta_eth_mac'] = readable_mac
+        
+        if self.db_conn and self.export_type == 'influxdb':
             ## push data to influx
+            json_body = [{
+                "measurement": "locationData",
+                "tags": {
+                    "topic": streaming_data['topic'],
+                    "customer_id": streaming_data['customer_id']
+                    },
+                "time": streaming_data['timestamp'], 
+                "fields": streaming_data['data']
+                }]
+            try:
+                result = self.db_conn.write_points(points=json_body, database='atm23')
+                print("Database write: ", result)
+                if result == False:
+                    print("DB push failed!!!")
+            except Exception as err:
+                print(err)
+
+        # verify DB data
+        #out = self.db_conn.query(query='SELECT * FROM "atm23"."autogen"', database='atm23')
+        #print("Influx Data query!!!!!!!!!!!!!!!!!!!")
+        #print(out)
 
 class apprfExport():
     def __init__(self, topic, export_type, db_conn):

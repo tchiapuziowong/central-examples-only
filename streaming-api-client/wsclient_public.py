@@ -332,6 +332,7 @@ def establish_influx_conn(host='', port=8086, username='', password='', ssl=True
     ssl = False
     verify_ssl = False
     client = None
+    database = 'atm23'
 
     try:
         # Create connection
@@ -346,12 +347,13 @@ def establish_influx_conn(host='', port=8086, username='', password='', ssl=True
 
         if db_found == False:
           client.create_database(database)
+          client.alter_retention_policy(name='autogen', database=database, duration='INF')
 
         # Switch to an existing database
         client.switch_database(database)
       
-    except:
-        print('Database connection error')
+    except Exception as err:
+        print('Database connection error:', err)
 
     return client
 
