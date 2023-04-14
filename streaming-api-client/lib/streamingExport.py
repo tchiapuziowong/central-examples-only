@@ -98,10 +98,11 @@ class Decoder():
                   "%s: %s" % (self.topic, str(e)))
 
 class presenceExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """
@@ -112,10 +113,11 @@ class presenceExport():
         # Add Your code here to process data and handle transport/storage
 
 class securityExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """
@@ -126,10 +128,11 @@ class securityExport():
         # Add Your code here to process data and handle transport/storage
 
 class monitoringExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """
@@ -140,10 +143,11 @@ class monitoringExport():
         # Add Your code here to process data and handle transport/storage
 
 class locationExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """
@@ -152,12 +156,15 @@ class locationExport():
         """
         streaming_data = self.decoder.decodeData(data)
         # Add Your code here to process data and handle transport/storage
+        if self.db_conn:
+            ## push data to influx
 
 class apprfExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """
@@ -168,10 +175,11 @@ class apprfExport():
         # Add Your code here to process data and handle transport/storage
 
 class auditExport():
-    def __init__(self, topic, export_type):
+    def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
         self.subject = topic
         self.decoder = Decoder(topic)
+        self.db_conn = db_conn
 
     def processor(self, data):
         """

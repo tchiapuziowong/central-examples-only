@@ -1,0 +1,9 @@
+{
+  "customers": {
+    "location-kk": {
+      "username": "karthikeyan.dhandapani@hpe.com",
+      "wsskey": "eyJhbGciOiJIUzI1NiIsInR5cGUiOiJqd3QifQ.eyJjdXN0b21lcl9pZCI6ImUyYmUwZGU5ZDc1ZDRiNTJiYmIzZWM3ZmZmODE0MGQ4IiwiY3JlYXRpb25fZGF0ZSI6MTY4MTQxMDczMX0.5g0kTq1PMwaNUqlAL1UY7Kko47UpBw0F8f1z5Z9d-8A",
+      "topic": "location"
+    }
+  }
+}

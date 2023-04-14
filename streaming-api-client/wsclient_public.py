@@ -35,6 +35,10 @@ from lib import streamingExport
 from lib.utilities import read_jsonfile, write_jsonfile
 from pprint import pprint
 
+# influxdb client
+from influxdb import InfluxDBClient
+
+
 # Constants
 C_TOPIC = ['monitoring', 'apprf', 'presence',
            'audit', 'location', 'security']
@@ -250,7 +254,7 @@ def get_websocket_connection(hostname, c_entry, customer):
             else:
                 raise err
 
-def get_export_obj(topic, export_type):
+def get_export_obj(topic, export_type, db_conn):
     """
     Based on the subscribed topic, this function define an instance of the
     Export class available in 'lib/streamingExport.py'. So that the data can be
@@ -263,12 +267,12 @@ def get_export_obj(topic, export_type):
     obj_name = topic + "Export"
     try:
         classObj = getattr(streamingExport, obj_name)
-        processor = classObj(topic, export_type)
+        processor = classObj(topic, export_type, db_conn)
         return processor
     except Exception as err:
         raise err
 
-def streamClient(c_entry, param_dict):
+def streamClient(c_entry, param_dict, db_conn=None):
     """
     Summary: Websocket Client to stream data from Aruba Central Streaming API.
 
@@ -293,7 +297,7 @@ def streamClient(c_entry, param_dict):
     export_obj = None
     if param_dict['export_data']:
         export_obj = get_export_obj(param_dict['customers'][c_entry]['topic'],
-                                    param_dict['export_data'])
+                                    param_dict['export_data'], db_conn)
 
     try:
         # Infinite loop to stream indefinitely or until connection breaks
@@ -320,6 +324,37 @@ def streamClient(c_entry, param_dict):
         print("End time for customer %s: %s" % (c_entry, str(time.time())))
         raise e
 
+def establish_influx_conn(host='', port=8086, username='', password='', ssl=True, verify_ssl=True, database=''):
+    host = 'localhost'
+    port = 8086
+    username = 'admin'
+    password = 'Aruba#123!'
+    ssl = False
+    verify_ssl = False
+    client = None
+
+    try:
+        # Create connection
+        client = InfluxDBClient(host, port, username, password, ssl, verify_ssl)
+        
+        # Check if database exists or create a new database
+        db_found = False
+        db_list = client.get_list_database()
+        for db in db_list:
+          if database == db["name"]:
+              db_found = True
+
+        if db_found == False:
+          client.create_database(database)
+
+        # Switch to an existing database
+        client.switch_database(database)
+      
+    except:
+        print('Database connection error')
+
+    return client
+
 if __name__ == '__main__':
     # Parsing script arguments
     parser = define_arguments()
@@ -330,7 +365,11 @@ if __name__ == '__main__':
     validate_customer_dict(param_dict['customers'])
 
     print("Websocket server to connect : {}".format(args.hostname))
-
+    
+    db_conn = None
+    # Establish InfluxDB connection
+    db_conn = establish_influx_conn()
+    
     # Create Connection for all customers
     for name,info in param_dict['customers'].items():
         conn = get_websocket_connection(args.hostname,
@@ -345,7 +384,7 @@ if __name__ == '__main__':
     # Spawning concurrent async greenlet for every customer
     for name,info in param_dict['customers'].items():
         jobs.append(
-            p.spawn(streamClient, name, param_dict)
+            p.spawn(streamClient, name, param_dict, db_conn)
         )
     try:
         gevent.joinall(jobs)
