@@ -149,12 +149,15 @@ if __name__ == "__main__":
 
     # Create Central Connection Object
     central_info = {
+        "username": "aruba.test.central@gmail.com",
+        "password": "H9yzxLgvkaTY@iS",
         "base_url": "https://internal-apigw.central.arubanetworks.com",
-        "client_id": "mAzkBKcYnX3R9Kj0cZ6H2E8C1Yv3vr1v",
-        "client_secret": "P1bc7zrc0CkQRplsNdvgwr3s3NMFziVB",
+        "client_id": "LXz5Rpu7PfehOVeRsC1o4QCUmMJV1BHM",
+        "client_secret": "oTYNKQjwdbADt5thH64rq3wbb6bolprq",
         "customer_id": "e2be0de9d75d4b52bbb3ec7fff8140d8",
         "token": {
-            "access_token": "CPB76coMvPmRnt20I5Ag466gVJ4s9zrZ"
+            "access_token": "vw8DwhBLT0KqQv7ssMtHmMvXBrfLnBdc",
+            "refresh_token":"pSrN8RLpXMD7gAYvxUDNmoLE5Zf1oUDJ"
         }
     }
     ssl_verify = True
