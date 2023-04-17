@@ -157,6 +157,8 @@ if __name__ == "__main__":
     ssl_verify = True
     central = ArubaCentralBase(central_info=central_info,
                             ssl_verify=ssl_verify)
+    central_get_apprf(central)
+
     exit()
     # replace prom_collector with function we want repeated
     rt = RepeatedTimer(REPEAT_NSEC, prom_collector_update) # it auto-starts, no need of rt.start()
