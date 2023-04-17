@@ -20,8 +20,8 @@ Global Variables
 """
 # Collect metrics every 5 seconds
 REPEAT_NSEC = 5
-central_obj = None
-influxdb_obj = None
+global central_obj
+global influxdb_obj
 
 class RepeatedTimer(object):
     def __init__(self, interval, function, *args, **kwargs):
@@ -70,23 +70,24 @@ def central_get_apprf():
         base_resp = central_obj.command(apiMethod=apiMethod,
                                     apiPath=apiPath,
                                     apiParams=apiParams)
-        pprint(base_resp)
+        #pprint(base_resp)
         sites_data[site] = base_resp['msg']
-        sites_data['name'] = site
+        sites_data[site]['name'] = site
 
+    #pprint(sites_data)
     update_influxdb(sites_data)
 
 def update_influxdb(sites_data):
     global influxdb_obj
     json_body = []
-    for site in sites_data:
-        pprint(site)
-        timestamp = site['result']['app_cat'][0]['timestamp']
+    for site in sites_data.keys():
+        data = sites_data[site]
+        timestamp = data['result']['app_cat'][0]['timestamp']
         field_data = {
             "measurement": "apprfData",
             "tags": {
                 "topic": "apprf",
-                "site": site['name']
+                "site": site
             },
             "time": timestamp,
             "fields": {}
@@ -94,7 +95,7 @@ def update_influxdb(sites_data):
         field_tmp = {}
         for app_data in data['result']['app_cat']:
             field_tmp['name'] = app_data['name']
-            field_tmp['percentage_usage'] = app_data['percentage_usage']
+            field_tmp['percent_usage'] = app_data['percent_usage']
             field_data["fields"] = field_tmp
             json_body.append(field_data.copy())
     
@@ -135,15 +136,17 @@ def establish_influx_conn(host='', port=8086, username='', password='', ssl=True
 
         # Switch to an existing database
         influxdb_obj.switch_database(database)
+
+        return influxdb_obj
       
     except Exception as err:
         print('Database connection error:', err)
+        return None
 
 
 if __name__ == "__main__":
     print ("starting...")
-
-    db_conn = None
+    
     # Establish InfluxDB connection
     influxdb_obj = establish_influx_conn()
 
