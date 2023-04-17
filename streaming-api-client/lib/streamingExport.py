@@ -36,7 +36,6 @@ from proto.location_pb2 import stream_location
 from proto.security_pb2 import RapidsStreamingEvent
 
 import base64
-
 threadLock = threading.Lock()
 
 class Decoder():
@@ -116,39 +115,72 @@ class presenceExport():
         #readable_mac = ':'.join('%02x' % byte for byte in byte_mac)
         #streaming_data['data']['pa_proximity_event'] = readable_mac
         
-        if self.db_conn and self.export_type == 'influxdb':
-            for presence_event in data['pa_proximity_event']['proximity']:
-                if (presence_event['associated']):
-                    ## push data to influx
-                    ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr'])
-                    ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
-                    sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr'])
-                    sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
-                    field_data = {
-                        "ap_eth_mac": ap_mac,
-                        "device_id": presence_event['device_id'],
-                        "rssi_val": presence_event['rssi_val'],
-                        "sta_eth_mac": sta_mac
-                    }
-                    json_body = [{
-                        "measurement": "presenceData",
-                        "tags": {
-                            "topic": streaming_data['topic'],
-                            "customer_id": streaming_data['customer_id']
-                        },
-                        "time": streaming_data['timestamp'],
-                        "fields": field_data
-                    }]
+        # Add Your code here to process data and handle transport/storage
+        field_data = None
+       # pdb.set_trace()
+        if (streaming_data['data']['event_type'] == "proximity"):
+            for presence_event in streaming_data['data']['pa_proximity_event']['proximity']:
+
+                ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
+                ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
+                sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
+                sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
+
+                field_data = {
+                    "ap_eth_mac": ap_mac,
+                    "device_id": presence_event['device_id'],
+                    "rssi_val": presence_event['rssi_val'],
+                    "sta_eth_mac": sta_mac
+                }
+                json_body = [{
+                    "measurement": "presenceData",
+                    "tags": {
+                        "topic": streaming_data['topic'],
+                        "customer_id": streaming_data['customer_id'],
+                        "type": "proximity"
+                    },
+                    "time": streaming_data['timestamp'],
+                    "fields": field_data
+                }]
                 try:
                     result = self.db_conn.write_points(points=json_body, database='atm23')
-                    print(streaming_data['topic'] + " Database write: "+ result)
+                    print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
                     if result == False:
                         print("DB push failed!!!")
                 except Exception as err:
                     print(err)
-            #print(streaming_data)
-        # Add Your code here to process data and handle transport/storage
+        elif (streaming_data['data']['event_type'] == "rssi"):
+            for presence_event in streaming_data['data']['pa_rssi_event']['rssi']:
 
+                ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
+                ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
+                sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
+                sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
+                field_data = {
+                    "ap_eth_mac": ap_mac,
+                    "device_id": presence_event['device_id'],
+                    "rssi_val": presence_event['rssi_val'],
+                    "sta_eth_mac": sta_mac,
+                    "noise_floor": presence_event['noise_floor']
+                }
+                json_body = [{
+                    "measurement": "presenceData",
+                    "tags": {
+                        "topic": streaming_data['topic'],
+                        "customer_id": streaming_data['customer_id'],
+                        "type": "rssi"
+                    },
+                    "time": streaming_data['timestamp'],
+                    "fields": field_data
+                }]
+                try:
+                    result = self.db_conn.write_points(points=json_body, database='atm23')
+                    #print(streaming_data['topic'] + streaming_data['data']['event_type'] + " Database write: "+ result)
+                    print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
+                    if result == False:
+                        print("DB push failed!!!")
+                except Exception as err:
+                    print(err)
 class securityExport():
     def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
@@ -210,7 +242,8 @@ class locationExport():
                 }]
             try:
                 result = self.db_conn.write_points(points=json_body, database='atm23')
-                print(streaming_data['topic'] + " Database write: "+ result)
+                #print(streaming_data['topic'] + " Database write: "+ result)
+                print(f'{streaming_data["topic"]} Database write: {result}')
                 if result == False:
                     print("DB push failed!!!")
             except Exception as err:
