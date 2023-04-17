@@ -168,7 +168,7 @@ if __name__ == "__main__":
                             ssl_verify=ssl_verify)
 
     # replace prom_collector with function we want repeated
-    rt = RepeatedTimer(REPEAT_NSEC, central_get_data()) # it auto-starts, no need of rt.start()
+    rt = RepeatedTimer(REPEAT_NSEC, central_get_data) # it auto-starts, no need of rt.start()
 
     try:
         while True:
