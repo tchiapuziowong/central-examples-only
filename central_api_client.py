@@ -20,6 +20,8 @@ Global Variables
 """
 # Collect metrics every 5 seconds
 REPEAT_NSEC = 5
+central_obj = None
+influxdb_obj = None
 
 class RepeatedTimer(object):
     def __init__(self, interval, function, *args, **kwargs):
@@ -47,36 +49,62 @@ class RepeatedTimer(object):
         self._timer.cancel()
         self.is_running = False
 
-def central_get_apprf(central_obj):
+def central_get_data():
+    global central_obj
+    central_get_apprf()
+    # central_get_presence()
+
+def central_get_apprf():
+    global central_obj
     # Sample API call using 'ArubaCentralBase.command()'
     # GET groups from Aruba Central
     apiPath = "/apprf/datapoints/v2/topn_stats"
     apiMethod = "GET"
+    site = "ATM-Demo"
     apiParams = {
-        "count": 10
+        "count": 10,
+        "site": site
     }
     base_resp = central_obj.command(apiMethod=apiMethod,
                                 apiPath=apiPath,
                                 apiParams=apiParams)
-    pprint(base_resp)
+    #pprint(base_resp)
 
-    #update_influxdb(base_resp)
+    base_resp['site'] = site
+
+    update_influxdb(base_resp)
 
 def update_influxdb(data):
-    field_data = {}
-    timestamp = data['result']
-    json_body = [{
+    global influxdb_obj
+    timestamp = data['result']['app_cat'][0]['timestamp']
+    json_body = []
+    field_data = {
         "measurement": "apprfData",
         "tags": {
-            "topic": streaming_data['topic'],
-            "customer_id": streaming_data['customer_id'],
-            "type": "proximity"
+            "topic": "apprf",
+            "site": data['site']
         },
-        "time": streaming_data['timestamp'],
-        "fields": field_data
-    }]
+        "time": timestamp,
+        "fields": {}
+    }
+    field_tmp = {}
+    for app_data in data['result']['app_cat']:
+        field_tmp['name'] = app_data['name']
+        field_tmp['percentage_usage'] = app_data['percentage_usage']
+        field_data["fields"] = field_tmp
+        json_body.append(field_data.copy())
+    
+    try:
+        result = influxdb_obj.write_points(points=json_body, database='atm23')
+        #print(streaming_data['topic'] + " Database write: "+ result)
+        print(f'AppRF Database write: {result}')
+        if result == False:
+            print("DB push failed!!!")
+    except Exception as err:
+        print(err)
 
 def establish_influx_conn(host='', port=8086, username='', password='', ssl=True, verify_ssl=True, database=''):
+    global influxdb_obj
     host = 'localhost'
     port = 8086
     username = 'admin'
@@ -88,61 +116,32 @@ def establish_influx_conn(host='', port=8086, username='', password='', ssl=True
 
     try:
         # Create connection
-        client = InfluxDBClient(host, port, username, password, ssl, verify_ssl)
+        influxdb_obj = InfluxDBClient(host, port, username, password, ssl, verify_ssl)
         
         # Check if database exists or create a new database
         db_found = False
-        db_list = client.get_list_database()
+        db_list = influxdb_obj.get_list_database()
         for db in db_list:
           if database == db["name"]:
               db_found = True
 
         if db_found == False:
-          client.create_database(database)
-          client.alter_retention_policy(name='autogen', database=database, duration='INF')
+          influxdb_obj.create_database(database)
+          influxdb_obj.alter_retention_policy(name='autogen', database=database, duration='INF')
 
         # Switch to an existing database
-        client.switch_database(database)
+        influxdb_obj.switch_database(database)
       
     except Exception as err:
         print('Database connection error:', err)
 
-    return client
-
-def prom_collector_update():
-    switch_metrics = []
-    global sdict
-    for idx, switch in enumerate(sdict):
-        if "conn" not in switch:
-            sdict[idx]["conn"] = None
-        if "conn" in switch and not switch["conn"]:
-            print("Logging in to switch: {}".format(switch["switch_ip"]))
-            sdict[idx]["conn"] = login(base_url=switch["url"], 
-                                       username=switch["username"], 
-                                       password=switch["password"])
-        cx = sdict[idx]["conn"]
-
-        try:
-            sinfo = get_switch_info(s=cx, url=switch["url"])
-            for key, val in sinfo.items():
-                sdict[idx][key] = val
-            switch_metrics.append(collect_switch_metrics(cx=cx, idx=idx, switch=switch, sdict=sdict))
-        except Exception as err:
-            cx = logout(s=cx, url=switch["url"])
-            sdict[idx]["conn"] = login(base_url=switch["url"], 
-                                       username=switch["username"], 
-                                       password=switch["password"])
-            raise err
-
-    # Update Switch Metrics to Prometheus Database
-    prom_update_db(switch_metrics)
 
 if __name__ == "__main__":
     print ("starting...")
 
     db_conn = None
     # Establish InfluxDB connection
-    db_conn = establish_influx_conn()
+    influxdb_obj = establish_influx_conn()
 
     # Create Central Connection Object
     central_info = {
@@ -155,13 +154,11 @@ if __name__ == "__main__":
         }
     }
     ssl_verify = True
-    central = ArubaCentralBase(central_info=central_info,
+    central_obj = ArubaCentralBase(central_info=central_info,
                             ssl_verify=ssl_verify)
-    central_get_apprf(central)
 
-    exit()
     # replace prom_collector with function we want repeated
-    rt = RepeatedTimer(REPEAT_NSEC, prom_collector_update) # it auto-starts, no need of rt.start()
+    rt = RepeatedTimer(REPEAT_NSEC, central_get_data()) # it auto-starts, no need of rt.start()
 
     try:
         while True:
