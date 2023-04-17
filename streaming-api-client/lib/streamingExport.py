@@ -141,7 +141,7 @@ class presenceExport():
                     }]
                 try:
                     result = self.db_conn.write_points(points=json_body, database='atm23')
-                    print("Database write: ", result)
+                    print(streaming_data['topic'] + " Database write: "+ result)
                     if result == False:
                         print("DB push failed!!!")
                 except Exception as err:
@@ -210,7 +210,7 @@ class locationExport():
                 }]
             try:
                 result = self.db_conn.write_points(points=json_body, database='atm23')
-                print("Database write: ", result)
+                print(streaming_data['topic'] + " Database write: "+ result)
                 if result == False:
                     print("DB push failed!!!")
             except Exception as err:
@@ -234,6 +234,29 @@ class apprfExport():
         transport/storage.
         """
         streaming_data = self.decoder.decodeData(data)
+        # Add Your code here to process data and handle transport/storage
+
+        if self.db_conn and self.export_type == 'influxdb':
+            field_dict = {'dest_url_prefix': streaming_data['data']['dest_url_prefix'],
+                          }
+            ## push data to influx
+            json_body = [{
+                "measurement": streaming_data['topic']+"Data",
+                "tags": {
+                    "topic": streaming_data['topic'],
+                    "customer_id": streaming_data['customer_id']
+                    },
+                "time": streaming_data['timestamp'],
+                "fields": field_dict
+                }]
+            try:
+                result = self.db_conn.write_points(points=json_body, database='atm23')
+                print(streaming_data['topic'] + " Database write: "+ result)
+                if result == False:
+                    print("DB push failed!!!")
+            except Exception as err:
+                print(err)
+
         print(streaming_data)
         # Add Your code here to process data and handle transport/storage
 
