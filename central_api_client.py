@@ -60,39 +60,43 @@ def central_get_apprf():
     # GET groups from Aruba Central
     apiPath = "/apprf/datapoints/v2/topn_stats"
     apiMethod = "GET"
-    site = "ATM-Demo"
-    apiParams = {
-        "count": 10,
-        "site": site
-    }
-    base_resp = central_obj.command(apiMethod=apiMethod,
-                                apiPath=apiPath,
-                                apiParams=apiParams)
-    #pprint(base_resp)
+    sites = ["ATM-Demo"]
+    sites_data = {}
+    for site in sites:
+        apiParams = {
+            "count": 10,
+            "site": site
+        }
+        base_resp = central_obj.command(apiMethod=apiMethod,
+                                    apiPath=apiPath,
+                                    apiParams=apiParams)
+        pprint(base_resp)
+        sites_data[site] = base_resp['msg']
+        sites_data['name'] = site
 
-    base_resp['site'] = site
+    update_influxdb(sites_data)
 
-    update_influxdb(base_resp)
-
-def update_influxdb(data):
+def update_influxdb(sites_data):
     global influxdb_obj
-    timestamp = data['result']['app_cat'][0]['timestamp']
     json_body = []
-    field_data = {
-        "measurement": "apprfData",
-        "tags": {
-            "topic": "apprf",
-            "site": data['site']
-        },
-        "time": timestamp,
-        "fields": {}
-    }
-    field_tmp = {}
-    for app_data in data['result']['app_cat']:
-        field_tmp['name'] = app_data['name']
-        field_tmp['percentage_usage'] = app_data['percentage_usage']
-        field_data["fields"] = field_tmp
-        json_body.append(field_data.copy())
+    for site in sites_data:
+        pprint(site)
+        timestamp = site['result']['app_cat'][0]['timestamp']
+        field_data = {
+            "measurement": "apprfData",
+            "tags": {
+                "topic": "apprf",
+                "site": site['name']
+            },
+            "time": timestamp,
+            "fields": {}
+        }
+        field_tmp = {}
+        for app_data in data['result']['app_cat']:
+            field_tmp['name'] = app_data['name']
+            field_tmp['percentage_usage'] = app_data['percentage_usage']
+            field_data["fields"] = field_tmp
+            json_body.append(field_data.copy())
     
     try:
         result = influxdb_obj.write_points(points=json_body, database='atm23')
