@@ -112,6 +112,41 @@ class presenceExport():
         transport/storage.
         """
         streaming_data = self.decoder.decodeData(data)
+        #byte_mac = base64.b64decode(streaming_data['data']['sta_eth_mac']['addr'])
+        #readable_mac = ':'.join('%02x' % byte for byte in byte_mac)
+        #streaming_data['data']['pa_proximity_event'] = readable_mac
+        
+        if self.db_conn and self.export_type == 'influxdb':
+            for presence_event in data['pa_proximity_event']['proximity']:
+                if (presence_event['associated']):
+                    ## push data to influx
+                    ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr'])
+                    ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
+                    sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr'])
+                    sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
+                    field_data = {
+                        "ap_eth_mac": ap_mac,
+                        "device_id": presence_event['device_id'],
+                        "rssi_val": presence_event['rssi_val'],
+                        "sta_eth_mac": sta_mac
+                    }
+                    json_body = [{
+                        "measurement": "presenceData",
+                        "tags": {
+                            "topic": streaming_data['topic'],
+                            "customer_id": streaming_data['customer_id']
+                        },
+                        "time": streaming_data['timestamp'],
+                        "fields": field_data
+                    }]
+                try:
+                    result = self.db_conn.write_points(points=json_body, database='atm23')
+                    print("Database write: ", result)
+                    if result == False:
+                        print("DB push failed!!!")
+                except Exception as err:
+                    print(err)
+            #print(streaming_data)
         # Add Your code here to process data and handle transport/storage
 
 class securityExport():
@@ -199,6 +234,7 @@ class apprfExport():
         transport/storage.
         """
         streaming_data = self.decoder.decodeData(data)
+        print(streaming_data)
         # Add Your code here to process data and handle transport/storage
 
 class auditExport():
@@ -214,6 +250,7 @@ class auditExport():
         transport/storage.
         """
         streaming_data = self.decoder.decodeData(data)
+        print(streaming_data)
         # Add Your code here to process data and handle transport/storage
 
 class dataHandler ():
