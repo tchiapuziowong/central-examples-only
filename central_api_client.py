@@ -55,7 +55,7 @@ class RepeatedTimer(object):
 def central_get_data():
     global central_obj
     central_sites_list = central_get_sites()
-    #central_get_apprf(central_sites_list)
+    central_get_apprf(central_sites_list)
     central_get_presence(central_sites_list)
 
 from pycentral.monitoring import Sites
@@ -74,7 +74,7 @@ def central_get_apprf(site_list):
     apiMethod = "GET"
     
     sites = [site['name'] for site in site_list]
-    #sites = ["ATM-Demo"]
+
     sites_data = {}
     for site in sites:
         apiParams = {
@@ -129,14 +129,14 @@ def update_influxdb(topic, sites_data):
     if (topic == 'apprf'):
         for site in sites_data.keys():
             data = sites_data[site]
-            timestamp = data['result']['app_cat'][0]['timestamp']
+            timestamp = int(data['result']['app_cat'][0]['timestamp'])
             field_data = {
                 "measurement": "apprfData",
                 "tags": {
                     "topic": "apprf",
                     "site": site
                 },
-                "time": time(),
+                "time": timestamp,
                 "fields": {}
             }
             field_tmp = {}
@@ -146,10 +146,6 @@ def update_influxdb(topic, sites_data):
             field_tmp['percent_usage'] = app_data['percent_usage']
             field_data["fields"] = field_tmp.copy()
             json_body.append(field_data.copy())
-            pprint('*'*50)
-            pprint(json_body)
-            #result = influxdb_obj.write_points(points=json_body.copy(), database='atm23')
-            #print(f'AppRF Database write: {result}')
     
     elif (topic == 'presence'):
         for site_data in sites_data.values():
