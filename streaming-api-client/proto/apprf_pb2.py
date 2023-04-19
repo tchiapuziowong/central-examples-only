@@ -15,27 +15,28 @@ _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0b\x61pprf.proto\x12\x05\x41pprf\"\x1b\n\x0bmac_address\x12\x0c\n\x04\x61\x64\x64r\x18\x01 \x01(\x0c\"\x99\x01\n\nip_address\x12)\n\x02\x61\x66\x18\x01 \x01(\x0e\x32\x1d.Apprf.ip_address.addr_family\x12\x0c\n\x04\x61\x64\x64r\x18\x02 \x01(\x0c\"R\n\x0b\x61\x64\x64r_family\x12\x16\n\x12\x41\x44\x44R_FAMILY_UNSPEC\x10\x00\x12\x14\n\x10\x41\x44\x44R_FAMILY_INET\x10\x01\x12\x15\n\x11\x41\x44\x44R_FAMILY_INET6\x10\x02\"\xef\x01\n\rapprf_session\x12\x13\n\x0b\x63ustomer_id\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x04\x12\x15\n\rserial_number\x18\x03 \x01(\t\x12?\n\x17\x63lient_firewall_session\x18\x04 \x03(\x0b\x32\x1e.Apprf.client_firewall_session\x12\x33\n\x11url_detail_record\x18\x05 \x03(\x0b\x32\x18.Apprf.url_detail_record\x12\x0f\n\x07\x61p_name\x18\x06 \x01(\t\x12\x18\n\x10session_duration\x18\x07 \x01(\r\"\xc2\x07\n\x17\x63lient_firewall_session\x12$\n\tclient_ip\x18\x01 \x01(\x0b\x32\x11.Apprf.ip_address\x12&\n\nclient_mac\x18\x02 \x01(\x0b\x32\x12.Apprf.mac_address\x12\"\n\x07\x64\x65st_ip\x18\x03 \x01(\x0b\x32\x11.Apprf.ip_address\x12\x43\n\x0cingress_type\x18\x04 \x01(\x0e\x32-.Apprf.client_firewall_session.ingress_type_t\x12\x10\n\x08ip_proto\x18\x05 \x01(\r\x12\x0c\n\x04vlan\x18\x06 \x01(\t\x12\x11\n\tuplink_id\x18\x07 \x01(\r\x12\x13\n\x0buplink_name\x18\x08 \x01(\t\x12\x0e\n\x06\x61pp_id\x18\t \x01(\r\x12\x10\n\x08\x61pp_name\x18\n \x01(\t\x12\x12\n\napp_cat_id\x18\x0b \x01(\r\x12\x0f\n\x07\x61pp_cat\x18\x0c \x01(\t\x12\x12\n\nweb_cat_id\x18\r \x01(\r\x12\x0f\n\x07web_cat\x18\x0e \x01(\t\x12\x15\n\rweb_rep_score\x18\x0f \x01(\r\x12\x0f\n\x07web_rep\x18\x10 \x01(\t\x12\x17\n\x0f\x64\x65st_url_prefix\x18\x11 \x01(\t\x12\x0e\n\x06\x64omain\x18\x12 \x01(\t\x12L\n\rsession_flags\x18\x13 \x01(\x0e\x32\x35.Apprf.client_firewall_session.app_enforcement_status\x12\x10\n\x08tx_bytes\x18\x14 \x01(\x04\x12\x10\n\x08rx_bytes\x18\x15 \x01(\x04\x12\x0b\n\x03rtt\x18\x16 \x01(\x04\x12\x0f\n\x07\x63\x32s_rtt\x18\x17 \x01(\x04\x12\x0f\n\x07s2c_rtt\x18\x18 \x01(\x04\x12\x13\n\x0bpacket_loss\x18\x19 \x01(\x04\x12\x17\n\x0f\x63\x32s_packet_loss\x18\x1a \x01(\x04\x12\x17\n\x0fs2c_packet_loss\x18\x1b \x01(\x04\x12\x0c\n\x04ssid\x18\x1c \x01(\t\x12\x11\n\tuser_name\x18\x1d \x01(\t\x12\x11\n\tuser_role\x18\x1e \x01(\t\x12\x13\n\x0b\x64\x65vice_type\x18\x1f \x01(\t\x12\x11\n\ttimestamp\x18  \x01(\x04\x12\x14\n\x0cpreauth_flag\x18! \x01(\x08\x12\x11\n\tdest_port\x18\" \x01(\r\"F\n\x0eingress_type_t\x12\x10\n\x0cINGRESS_WLAN\x10\x00\x12\x11\n\rINGRESS_WIRED\x10\x01\x12\x0f\n\x0bINGRESS_VPN\x10\x02\"6\n\x16\x61pp_enforcement_status\x12\x0e\n\nENF_PERMIT\x10\x00\x12\x0c\n\x08\x45NF_DENY\x10\x01\"\xe7\x02\n\x11url_detail_record\x12$\n\tclient_ip\x18\x01 \x02(\x0b\x32\x11.Apprf.ip_address\x12\"\n\x07\x64\x65st_ip\x18\x02 \x02(\x0b\x32\x11.Apprf.ip_address\x12&\n\nclient_mac\x18\x03 \x02(\x0b\x32\x12.Apprf.mac_address\x12\x17\n\x0f\x64\x65st_url_prefix\x18\x04 \x01(\x0c\x12\x11\n\thit_count\x18\x05 \x01(\r\x12=\n\x0bhttp_method\x18\x06 \x01(\x0e\x32(.Apprf.url_detail_record.url_http_method\x12\x1a\n\x12last_hit_timestamp\x18\x07 \x01(\x04\"Y\n\x0furl_http_method\x12\x0c\n\x08NON_HTTP\x10\x01\x12\x0c\n\x08HTTP_GET\x10\x02\x12\x0c\n\x08HTTP_PUT\x10\x03\x12\r\n\tHTTP_POST\x10\x04\x12\r\n\tHTTP_HEAD\x10\x05')
 
-_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'apprf_pb2', globals())
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'apprf_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _MAC_ADDRESS._serialized_start=22
-  _MAC_ADDRESS._serialized_end=49
-  _IP_ADDRESS._serialized_start=52
-  _IP_ADDRESS._serialized_end=205
-  _IP_ADDRESS_ADDR_FAMILY._serialized_start=123
-  _IP_ADDRESS_ADDR_FAMILY._serialized_end=205
-  _APPRF_SESSION._serialized_start=208
-  _APPRF_SESSION._serialized_end=447
-  _CLIENT_FIREWALL_SESSION._serialized_start=450
-  _CLIENT_FIREWALL_SESSION._serialized_end=1412
-  _CLIENT_FIREWALL_SESSION_INGRESS_TYPE_T._serialized_start=1286
-  _CLIENT_FIREWALL_SESSION_INGRESS_TYPE_T._serialized_end=1356
-  _CLIENT_FIREWALL_SESSION_APP_ENFORCEMENT_STATUS._serialized_start=1358
-  _CLIENT_FIREWALL_SESSION_APP_ENFORCEMENT_STATUS._serialized_end=1412
-  _URL_DETAIL_RECORD._serialized_start=1415
-  _URL_DETAIL_RECORD._serialized_end=1774
-  _URL_DETAIL_RECORD_URL_HTTP_METHOD._serialized_start=1685
-  _URL_DETAIL_RECORD_URL_HTTP_METHOD._serialized_end=1774
+  _globals['_MAC_ADDRESS']._serialized_start=22
+  _globals['_MAC_ADDRESS']._serialized_end=49
+  _globals['_IP_ADDRESS']._serialized_start=52
+  _globals['_IP_ADDRESS']._serialized_end=205
+  _globals['_IP_ADDRESS_ADDR_FAMILY']._serialized_start=123
+  _globals['_IP_ADDRESS_ADDR_FAMILY']._serialized_end=205
+  _globals['_APPRF_SESSION']._serialized_start=208
+  _globals['_APPRF_SESSION']._serialized_end=447
+  _globals['_CLIENT_FIREWALL_SESSION']._serialized_start=450
+  _globals['_CLIENT_FIREWALL_SESSION']._serialized_end=1412
+  _globals['_CLIENT_FIREWALL_SESSION_INGRESS_TYPE_T']._serialized_start=1286
+  _globals['_CLIENT_FIREWALL_SESSION_INGRESS_TYPE_T']._serialized_end=1356
+  _globals['_CLIENT_FIREWALL_SESSION_APP_ENFORCEMENT_STATUS']._serialized_start=1358
+  _globals['_CLIENT_FIREWALL_SESSION_APP_ENFORCEMENT_STATUS']._serialized_end=1412
+  _globals['_URL_DETAIL_RECORD']._serialized_start=1415
+  _globals['_URL_DETAIL_RECORD']._serialized_end=1774
+  _globals['_URL_DETAIL_RECORD_URL_HTTP_METHOD']._serialized_start=1685
+  _globals['_URL_DETAIL_RECORD_URL_HTTP_METHOD']._serialized_end=1774
 # @@protoc_insertion_point(module_scope)
