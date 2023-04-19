@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import pdb
 import re
 import json
 import csv
@@ -120,67 +121,71 @@ class presenceExport():
        # pdb.set_trace()
         if (streaming_data['data']['event_type'] == "proximity"):
             for presence_event in streaming_data['data']['pa_proximity_event']['proximity']:
+                if presence_event['associated']:
+                    ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
+                    ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
+                    sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
+                    sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
 
-                ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
-                ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
-                sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
-                sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
-
-                field_data = {
-                    "ap_eth_mac": ap_mac,
-                    "device_id": presence_event['device_id'],
-                    "rssi_val": presence_event['rssi_val'],
-                    "sta_eth_mac": sta_mac
-                }
-                json_body = [{
-                    "measurement": "presenceData",
-                    "tags": {
-                        "topic": streaming_data['topic'],
-                        "customer_id": streaming_data['customer_id'],
-                        "type": "proximity"
+                    field_data = {
+                        "ap_eth_mac": ap_mac,
+                        "device_id": presence_event['device_id'],
+                        "rssi_val": presence_event['rssi_val'],
+                        "sta_eth_mac": sta_mac
+                    }
+                    json_body = [{
+                        "measurement": "presenceData",
+                        "tags": {
+                            "topic": streaming_data['topic'],
+                            "customer_id": streaming_data['customer_id'],
+                            "type": "proximity",
+                            "device_mac": sta_mac
                     },
                     "time": streaming_data['timestamp'],
                     "fields": field_data
-                }]
-                try:
-                    result = self.db_conn.write_points(points=json_body, database='atm23')
-                    print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
-                    if result == False:
-                        print("DB push failed!!!")
-                except Exception as err:
-                    print(err)
+                    }]
+                    try:
+                        result = self.db_conn.write_points(points=json_body, database='atm23')
+                        print(f'{sta_mac}')
+                        print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
+                        if result == False:
+                            print("DB push failed!!!")
+                    except Exception as err:
+                        print(err)
         elif (streaming_data['data']['event_type'] == "rssi"):
             for presence_event in streaming_data['data']['pa_rssi_event']['rssi']:
-
-                ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
-                ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
-                sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
-                sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
-                field_data = {
-                    "ap_eth_mac": ap_mac,
-                    "device_id": presence_event['device_id'],
-                    "rssi_val": presence_event['rssi_val'],
-                    "sta_eth_mac": sta_mac,
-                    "noise_floor": presence_event['noise_floor']
-                }
-                json_body = [{
-                    "measurement": "presenceData",
-                    "tags": {
-                        "topic": streaming_data['topic'],
-                        "customer_id": streaming_data['customer_id'],
-                        "type": "rssi"
-                    },
-                    "time": streaming_data['timestamp'],
-                    "fields": field_data
-                }]
-                try:
-                    result = self.db_conn.write_points(points=json_body, database='atm23')
-                    #print(streaming_data['topic'] + streaming_data['data']['event_type'] + " Database write: "+ result)
-                    print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
-                    if result == False:
-                        print("DB push failed!!!")
-                except Exception as err:
-                    print(err)
+                if presence_event['associated']:
+                    ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
+                    ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
+                    sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
+                    sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
+                    field_data = {
+                        "ap_eth_mac": ap_mac,
+                        "device_id": presence_event['device_id'],
+                        "rssi_val": presence_event['rssi_val'],
+                        "sta_eth_mac": sta_mac,
+                        "noise_floor": presence_event['noise_floor']
+                    }
+                    json_body = [{
+                        "measurement": "presenceData",
+                        "tags": {
+                            "topic": streaming_data['topic'],
+                            "customer_id": streaming_data['customer_id'],
+                            "type": "rssi",
+                            "device_mac": sta_mac 
+                        },
+                        "time": streaming_data['timestamp'],
+                        "fields": field_data
+                    }]
+                    try:
+                        result = self.db_conn.write_points(points=json_body, database='atm23')
+                        #print(streaming_data['topic'] + streaming_data['data']['event_type'] + " Database write: "+ result)
+                        print(f'{sta_mac}')
+                        print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
+                        if result == False:
+                            print("DB push failed!!!")
+                    except Exception as err:
+                        print(err)
 class securityExport():
     def __init__(self, topic, export_type, db_conn):
         self.export_type = export_type
@@ -240,6 +245,7 @@ class locationExport():
                 "time": streaming_data['timestamp'], 
                 "fields": streaming_data['data']
                 }]
+            #pdb.set_trace()
             try:
                 result = self.db_conn.write_points(points=json_body, database='atm23')
                 #print(streaming_data['topic'] + " Database write: "+ result)
@@ -268,29 +274,65 @@ class apprfExport():
         """
         streaming_data = self.decoder.decodeData(data)
         # Add Your code here to process data and handle transport/storage
-
         if self.db_conn and self.export_type == 'influxdb':
-            field_dict = {'dest_url_prefix': streaming_data['data']['dest_url_prefix'],
-                          }
-            ## push data to influx
-            json_body = [{
-                "measurement": streaming_data['topic']+"Data",
-                "tags": {
-                    "topic": streaming_data['topic'],
-                    "customer_id": streaming_data['customer_id']
-                    },
-                "time": streaming_data['timestamp'],
-                "fields": field_dict
+            pprint("processing apprfData")
+            for appRFEntry in streaming_data['data']['client_firewall_session']:
+                json_body = [{
+                    "measurement": "apprfData",
+                    # Convert nanoseconds to mil
+                    "time": int(appRFEntry['timestamp']),
+                    "tags": {
+                        "topic": streaming_data['topic'],
+                        "customer_id": streaming_data['customer_id'],
+                    }
                 }]
-            try:
-                result = self.db_conn.write_points(points=json_body, database='atm23')
-                print(streaming_data['topic'] + " Database write: "+ result)
-                if result == False:
-                    print("DB push failed!!!")
-            except Exception as err:
-                print(err)
+                appRFEntry.pop('timestamp')
+                tags = json_body[0]['tags']
+                if ('client_mac' in appRFEntry):
+                    #pdb.set_trace()
+                    client_mac = ':'.join('%02x' % b for b in base64.b64decode(appRFEntry['client_mac']['addr']))
+                    tags['client_mac'] = client_mac
+                    appRFEntry.pop('client_mac')
+                if ('client_ip' in appRFEntry):
+                    client_ip = '.'.join('%d' % byte for byte in base64.b64decode(appRFEntry['client_ip']['addr']))
+                    tags['client_ip'] = client_ip
+                    appRFEntry.pop('client_ip')
+                if ('dest_ip' in appRFEntry):
+                    dest_ip = '.'.join('%d' % byte for byte in base64.b64decode(appRFEntry['dest_ip']['addr']))
+                    tags['dest_ip'] = dest_ip
+                    appRFEntry.pop('dest_ip')
+                json_body[0]["fields"] = appRFEntry
+                try:
+                    result = self.db_conn.write_points(points=json_body, database='atm23', time_precision='s')
+                    print(f"{streaming_data['topic']} - Database write: + {result}")
+                    if result == False:
+                        print("DB push failed!!!")
+                except Exception as err:
+                        print(err)
 
-        print(streaming_data)
+        #print(streaming_data)
+        #if self.db_conn and self.export_type == 'influxdb':
+            #field_dict = {'dest_url_prefix': streaming_data['data']['dest_url_prefix'],
+                          #}
+            ## push data to influx
+            #json_body = [{
+             #   "measurement": streaming_data['topic']+"Data",
+             #   "tags": {
+             #       "topic": streaming_data['topic'],
+             #       "customer_id": streaming_data['customer_id']
+             #       },
+             #   "time": streaming_data['timestamp'],
+             #   "fields": field_dict
+             #   }]
+            #try:
+            #    result = self.db_conn.write_points(points=json_body, database='atm23')
+            #    print(streaming_data['topic'] + " Database write: "+ result)
+            #    if result == False:
+            #        print("DB push failed!!!")
+            #except Exception as err:
+            #    print(err)
+
+        #print(streaming_data)
         # Add Your code here to process data and handle transport/storage
 
 class auditExport():
