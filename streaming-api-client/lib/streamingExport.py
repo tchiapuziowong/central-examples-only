@@ -266,6 +266,12 @@ class apprfExport():
         self.subject = topic
         self.decoder = Decoder(topic)
         self.db_conn = db_conn
+        self.mappings = [
+            'app_cat_id',
+            'app_id',
+            'web_cat_id',
+            'web_rep_score'
+            ]
 
     def processor(self, data):
         """
@@ -279,7 +285,6 @@ class apprfExport():
             for appRFEntry in streaming_data['data']['client_firewall_session']:
                 json_body = [{
                     "measurement": "apprfData",
-                    # Convert nanoseconds to mil
                     "time": int(appRFEntry['timestamp']),
                     "tags": {
                         "topic": streaming_data['topic'],
@@ -301,6 +306,13 @@ class apprfExport():
                     dest_ip = '.'.join('%d' % byte for byte in base64.b64decode(appRFEntry['dest_ip']['addr']))
                     tags['dest_ip'] = dest_ip
                     appRFEntry.pop('dest_ip')
+                # Convert ID mappings to VALUE strings
+                for key in self.mappings:
+                    if key in appRFEntry.keys():
+                        measurement = key + "_mapping"
+                        query = self.db_conn.query(f"select value from autogen.{measurement} where id={appRFEntry[key]}")
+                        value = next(query.get_points())['value']
+                        appRFEntry[key] = value
                 json_body[0]["fields"] = appRFEntry
                 try:
                     result = self.db_conn.write_points(points=json_body, database='atm23', time_precision='s')
