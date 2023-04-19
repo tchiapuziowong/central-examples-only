@@ -38,10 +38,8 @@ def central_get_mappings():
         base_resp = central_obj.command(apiMethod=apiMethod,
                                     apiPath=apiPaths[category],
                                     apiParams={})
-        pprint(base_resp)
-        category_mappings[category] = base_resp.copy()
+        category_mappings[category] = base_resp['msg'].copy()
 
-    #pprint(sites_data)
     update_influxdb(category_mappings)
 
 def update_influxdb(category_mappings):
