@@ -310,7 +310,11 @@ class apprfExport():
                 for key in self.mappings:
                     if key in appRFEntry.keys():
                         measurement = key + "_mapping"
-                        query = self.db_conn.query(f"select value from autogen.{measurement} where id={appRFEntry[key]}")
+                        query_str = f"select value from autogen.{measurement} where id='{appRFEntry[key]}'"
+                        query = self.db_conn.query(query_str)
+                        if len(query) == 0:
+                            pprint("error in query")
+                            quit()
                         value = next(query.get_points())['value']
                         appRFEntry[key] = value
                 json_body[0]["fields"] = appRFEntry
