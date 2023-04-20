@@ -56,17 +56,14 @@ def update_influxdb(category_mappings):
         for id in category_mappings[category].keys():
             field_data["fields"] = {'id': id,
                                     'value': category_mappings[category][id]}
-            json_body.append(field_data.copy())
-        
-        pprint(json_body)
-    try:
-        result = influxdb_obj.write_points(points=json_body.copy(), database='atm23')
-        #print(streaming_data['topic'] + " Database write: "+ result)
-        print(f'Database write: {result}')
-        if result == False:
-            print("DB push failed!!!")
-    except Exception as err:
-        print(err)
+            try:
+                result = influxdb_obj.write_points(points=[field_data.copy()], database='atm23')
+                #print(streaming_data['topic'] + " Database write: "+ result)
+                print(f'Database write: {result}')
+                if result == False:
+                    print("DB push failed!!!")
+            except Exception as err:
+                print(err)
 
 def establish_influx_conn(host='', port=8086, username='', password='', ssl=True, verify_ssl=True, database=''):
     #import pdb
