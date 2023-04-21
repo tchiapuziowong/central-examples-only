@@ -39,17 +39,27 @@ def central_get_location_mappings():
     campuses = campuses['msg']
     campus_dict = {}
 
-    for campus in campuses:
-        pprint(campus)
-    quit()
-    category_mappings = {}
-    for category in apiPaths.keys():
-        base_resp = central_obj.command(apiMethod=apiMethod,
-                                    apiPath=apiPaths[category],
-                                    apiParams={})
-        category_mappings[category] = base_resp['msg'].copy()
+    for campus in campuses['campus']:
+        campus_dict[campus['campus_id']] = {}
+        tmp_campus_api = apiPaths['campus_info'].format(campus['campus_id'])
+        campus_info = central_obj.command(apiMethod=apiMethod,        
+                                          apiPath=tmp_campus_api,
+                                          apiParams={})
+        campus_info = campus_info['msg']
 
-    update_influxdb(category_mappings)
+        for building in campus_info['buildings']:
+            tmp_building_api = apiPaths['building_info'].format(building['building_id'])
+            building_info = central_obj.command(apiMethod=apiMethod,
+                                                apiPath=tmp_building_api,
+                                                apiParams={})
+            building_info = building_info['msg']
+            campus_dict[campus['campus_id']][building['building_id']] = {}
+            campus_dict[campus['campus_id']][building['building_id']] = building_info['building'].copy()
+            if 'floors' not in building_info.keys():
+                continue
+            campus_dict[campus['campus_id']][building['building_id']]['floors'] =  building_info['floors'].copy()
+
+    update_influxdb(campus_dict, topic='location')
 
 def central_get_apprf_mappings():
     global central_obj
@@ -72,28 +82,66 @@ def central_get_apprf_mappings():
 
     update_influxdb(category_mappings)
 
-def update_influxdb(category_mappings):
+def update_influxdb(category_mappings, topic='apprf'):
     global influxdb_obj
     json_body = []
-    for category in category_mappings.keys():
-        field_data = {
-            "measurement": category+"_mapping",
-            "tags": {
-                "topic": category
-            },
-            "fields": {}
-        }
-        for id in category_mappings[category].keys():
-            field_data["fields"] = {'id': id,
-                                    'value': category_mappings[category][id]}
-            try:
-                result = influxdb_obj.write_points(points=[field_data.copy()], database='atm23')
-                #print(streaming_data['topic'] + " Database write: "+ result)
-                print(f'Database write: {result}')
-                if result == False:
-                    print("DB push failed!!!")
-            except Exception as err:
-                print(err)
+
+    if topic == 'location':
+        for campus in category_mappings.keys():
+            field_data = {
+                "measurement": "building_mapping",
+                "tags": {
+                    "campus_id": campus,
+                },
+                "fields": {}
+            }
+            for building in category_mappings[campus].keys():
+                building_dict = category_mappings[campus][building]
+                field_data['fields']['building_id'] = building_dict['building_id']
+                if 'floors' in building_dict.keys():
+                    floors_list = building_dict['floors']
+                    building_dict.pop('floors')
+                    for floor in floors_list:
+                        field_data["tags"]["floor_id"] = floor["floor_id"]
+                        field_data["fields"].update(floor)               
+                        field_data["fields"].update(building_dict)
+                        try:
+                            result = influxdb_obj.write_points(points=[field_data.copy()], database='atm23')
+                            print(f'Location Mapping Database write: {result}')
+                            if result == False:
+                                print("DB push failed!!!")
+                        except Exception as err:
+                            print(err)
+                else:
+                    field_data["fields"].update(building_dict)
+                    try:
+                        result = influxdb_obj.write_points(points=[field_data.copy()], database='atm23')
+                        print(f'Location Mapping Database write: {result}')
+                        if result == False:
+                            print("DB push failed!!!")
+                    except Exception as err:
+                        print(err)
+
+    elif topic == 'apprf':
+        for category in category_mappings.keys():
+            field_data = {
+                "measurement": category+"_mapping",
+                "tags": {
+                    "topic": category
+                },
+                "fields": {}
+            }
+            for id in category_mappings[category].keys():
+                field_data["fields"] = {'id': id,
+                                        'value': category_mappings[category][id]}
+                try:
+                    result = influxdb_obj.write_points(points=[field_data.copy()], database='atm23')
+                    #print(streaming_data['topic'] + " Database write: "+ result)
+                    print(f'AppRF Mapping Database write: {result}')
+                    if result == False:
+                        print("DB push failed!!!")
+                except Exception as err:
+                    print(err)
 
 def establish_influx_conn(host='', port=8086, username='', password='', ssl=True, verify_ssl=True, database=''):
     #import pdb
@@ -155,4 +203,5 @@ if __name__ == "__main__":
     central_obj = ArubaCentralBase(central_info=central_info,
                             ssl_verify=ssl_verify)
     
-    central_get_apprf_mappings()
+    #central_get_apprf_mappings()
+    central_get_location_mappings()
