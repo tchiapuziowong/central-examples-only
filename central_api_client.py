@@ -10,6 +10,9 @@ import sys
 import time
 import json
 import pdb
+import argparse
+from statistics import mean
+import math
 
 # influxdb client
 from influxdb import InfluxDBClient
@@ -25,6 +28,9 @@ Global Variables
 REPEAT_NSEC = 5
 global central_obj
 global influxdb_obj
+# Collect REST APIs every N minutes
+REST_INTERVAL_MINUTE = 1
+REST_INTERVAL_SECONDS = REST_INTERVAL_MINUTE * 60
 
 class RepeatedTimer(object):
     def __init__(self, interval, function, *args, **kwargs):
@@ -55,16 +61,134 @@ class RepeatedTimer(object):
 def central_get_data():
     global central_obj
     central_sites_list = central_get_sites()
-    central_get_apprf(central_sites_list)
-    central_get_presence(central_sites_list)
+    global startTime
+    startTime = int(time.time() - REST_INTERVAL_SECONDS)
+    global endTime 
+    endTime = int(time.time())
+    scriptOption = {
+        'automation': True
+    }
+    print('test1')
+    if (scriptOption['automation']):
+        print('test2')
+        ap_list = get_aps(central_sites_list)  
+        ap_list = get_aps_rf(ap_list)  
+        ap_list = get_clients_per_site(ap_list)
+        ap_list = central_get_top_n_apps(ap_list)
+        print('test3')
+        update_influxdb('apData', ap_list)
+    else:
+     #   central_get_apprf(central_sites_list)
+        central_get_presence(central_sites_list)
+
 
 from pycentral.monitoring import Sites
 def central_get_sites():
     global central_obj
     s = Sites()
     site_list = s.get_sites(central_obj)
-    #print(site_list)
+    pdb.set_trace()
     return [{'name': site['site_name'], 'id': site['site_id']} for site in site_list['msg']['sites']]
+
+def get_aps(site_list):
+    global central_obj
+    sites = [site['name'] for site in site_list]
+    apiPath = "/monitoring/v2/aps"
+    apiMethod = "GET"
+    apsObject = {}
+    for site in sites:
+        apiParams = {
+                "fields": "status,model",
+                "site": site,
+                "calculate_total": True,
+                "calculate_client_count": True,
+                "show_resource_details": True,
+                "limit": 1000
+        }
+        base_resp = central_obj.command(apiMethod=apiMethod,
+                                    apiPath=apiPath,
+                                    apiParams=apiParams)
+        site_aps = base_resp['msg']['aps']
+        site_aps_with_clients = [ap for ap in site_aps if ap['client_count'] > 0]
+        # Only adding sites that have atleast 1 client associated with the APs
+        if len(site_aps_with_clients) > 0:
+            apsObject[site] = site_aps_with_clients
+
+    return apsObject
+
+def get_aps_rf(site_list):
+    global central_obj, startTime, endTime
+    # Sample API call using 'ArubaCentralBase.command()'
+    # GET groups from Aruba Central
+    for site in site_list.keys():
+        for ap in site_list[site]:
+            apiPath = f"/monitoring/v3/aps/{ap['serial']}/rf_summary"
+            apiMethod = "GET"
+            apiParams = {
+                    "from_timestamp": startTime,
+                    "to_timestamp": endTime
+            }
+            base_resp = central_obj.command(apiMethod=apiMethod,
+                                            apiPath=apiPath,
+                                            apiParams=apiParams)
+            #pdb.set_trace()
+            if (len(base_resp['msg']['samples']) > 0):
+                ap['utilization'] = math.ceil(mean([sample['utilization'] for sample in base_resp['msg']['samples']]))
+            else: 
+                ap['utilization'] = 0
+    
+    return site_list
+
+def get_clients_per_site(site_list):
+    global central_obj
+    apiPath = "/monitoring/v2/clients"
+    apiMethod = "GET"
+    for site in site_list.keys():
+        for ap in site_list[site]:
+            # Check if there was any client connected to the AP Before fetching detailed Client stats
+            if (ap['client_count'] > 0):
+                apiParams = {
+                    "calculate_total": True,
+                    "timerange": "3H",
+                    "client_type": "WIRELESS",
+                    "client_status": "CONNECTED",
+                    "show_usage": True,
+                    "show_manufacturer": True,
+                    "show_signal_db": True,
+                    "serial": ap['serial'],
+                    "fields": "name,ip_address,username,os_type,associated_device,network,manufacturer,speed,usage,health,site,signal_strength,signal_db,snr"
+                }
+                base_resp = central_obj.command(apiMethod=apiMethod,
+                                        apiPath=apiPath,
+                                        apiParams=apiParams)
+                if len(base_resp['msg']['clients']) > 0:
+                    clients_list = base_resp['msg']['clients']
+                    for client in clients_list:
+                        client.pop('associated_device')
+                    ap['clients'] = base_resp['msg']['clients']
+    return site_list
+
+def central_get_top_n_apps(site_list):
+    global central_obj, startTime, endTime
+    # Sample API call using 'ArubaCentralBase.command()'
+    # GET groups from Aruba Central
+    apiPath = "/apprf/v1/applications"
+    apiMethod = "GET"
+    for site in site_list.keys():
+        for ap in site_list[site]:
+            # Check if there was any client connected to the AP Before fetching detailed Client AppRF stats
+            if (ap['client_count'] > 0):
+                apiParams = {
+                    "serial": ap['serial'],
+                    "details": True,
+                    "from_timestamp": startTime,
+                    "to_timestamp": endTime
+                }
+                base_resp = central_obj.command(apiMethod=apiMethod,
+                                            apiPath=apiPath,
+                                            apiParams=apiParams)
+                ap['top_n_apps'] = base_resp['msg']['result']['app_id']
+    return site_list
 
 def central_get_apprf(site_list):
     global central_obj
@@ -74,9 +198,10 @@ def central_get_apprf(site_list):
     apiMethod = "GET"
     
     sites = [site['name'] for site in site_list]
-
     sites_data = {}
     for site in sites:
+        if site != 'ATM-Demo':
+            continue
         apiParams = {
             "count": 10,
             "site": site
@@ -88,7 +213,6 @@ def central_get_apprf(site_list):
         sites_data[site] = base_resp['msg']
         sites_data[site]['name'] = site
 
-    #pprint(sites_data)
     update_influxdb('apprf', sites_data)
 
 def central_get_presence(site_list):
@@ -118,25 +242,31 @@ def central_get_presence(site_list):
                     emptySite = False
                     continue
             # pdb.set_trace()
+
             if (not emptySite):
                 presenceObj[presenceData['site_name']] = presenceData
+    #pdb.set_trace()
     update_influxdb('presence', presenceObj)
 
 
 def update_influxdb(topic, sites_data):
     global influxdb_obj
     json_body = []
+    #pdb.set_trace()
     if (topic == 'apprf'):
+        pprint('**processing APPRF DATA****')
         for site in sites_data.keys():
             data = sites_data[site]
-            timestamp = int(data['result']['app_cat'][0]['timestamp'])
+            if len(data['result']['app_cat']) == 0:
+                continue
+            #timestamp = int(data['result']['app_cat'][0]['timestamp'])
+            #timestamp = time.time()
             field_data = {
                 "measurement": "apprfData",
                 "tags": {
                     "topic": "apprf",
                     "site": site
                 },
-                "time": timestamp,
                 "fields": {}
             }
             field_tmp = {}
@@ -146,7 +276,9 @@ def update_influxdb(topic, sites_data):
             field_tmp['percent_usage'] = app_data['percent_usage']
             field_data["fields"] = field_tmp.copy()
             json_body.append(field_data.copy())
-    
+            result = influxdb_obj.write_points(points=json_body.copy(), database='atm23')
+            #print(streaming_data['topic'] + " Database write: "+ result)
+            print(f'{topic} Database write: {result}')
     elif (topic == 'presence'):
         for site_data in sites_data.values():
             site_name = site_data['site_name']
@@ -159,11 +291,55 @@ def update_influxdb(topic, sites_data):
                     "topic": "presence",
                     "site": site_name
                 },
-                "time": int(time.time()),
                 "fields": site_data
             }
             json_body.append(field_data.copy())
+    elif (topic == "apData"):
+        entry_time = int(time.time())
+        for [site_name, site_aps] in sites_data.items():
+            #pdb.set_trace()
+            for ap in site_aps:
+                ap_fields = ['client_count', 'cpu_utilization', 'macaddr', 'mem_free', 'mem_total', 'model', 'name', 'serial', 'status', 'utilization']
+                {k: ap[k] for k in ap.keys() & ap_fields}
+                field_data = {
+                    "measurement": "apData",
+                    "tags": {
+                        "topic": "apMonitoring",
+                        "site": site_name,
+                        "ap": ap['serial']
+                    },
+                    #"time": entry_time,
+                    "fields": {k: ap[k] for k in ap.keys() & ap_fields}
+                }
+                json_body.append(field_data)
+                for client in ap['clients']:
+                    field_data = {
+                        "measurement": "apData",
+                        "tags": {
+                            "topic": "apClients",
+                            "site": site_name,
+                            "ap": ap['serial'],
+                            "client_mac": client['macaddr']
+                        },
+                        #"time": entry_time,
+                        "fields": client
+                    }
+                    json_body.append(field_data)
+                for application in ap['top_n_apps']:
+                    field_data = {
+                        "measurement": "apData",
+                        "tags": {
+                            "topic": "applicationData",
+                            "site": site_name,
+                            "ap": ap['serial'],
+                            "appName": application['name']
+                        },
+                        #"time": entry_time,
+                        "fields": application
+                    }
+                    json_body.append(field_data)
 
+    #pdb.set_trace()
     try:
         result = influxdb_obj.write_points(points=json_body.copy(), database='atm23')
         #print(streaming_data['topic'] + " Database write: "+ result)
@@ -213,6 +389,9 @@ def establish_influx_conn(host='', port=8086, username='', password='', ssl=True
 if __name__ == "__main__":
     print ("starting...")
     
+ #   parser = define_arguments()
+#    args = parser.parse_args()
+
     # Establish InfluxDB connection
     influxdb_obj = establish_influx_conn()
 
@@ -233,9 +412,9 @@ if __name__ == "__main__":
     central_obj = ArubaCentralBase(central_info=central_info,
                             ssl_verify=ssl_verify)
     
-    
+    central_get_data()
     # replace prom_collector with function we want repeated
-    rt = RepeatedTimer(REPEAT_NSEC, central_get_data) # it auto-starts, no need of rt.start()
+    #rt = RepeatedTimer(REST_INTERVAL_SECONDS, central_get_data) # it auto-starts, no need of rt.start()
 
     try:
         while True:
