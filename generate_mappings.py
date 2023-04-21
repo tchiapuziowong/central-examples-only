@@ -21,7 +21,37 @@ from pprint import pprint
 global central_obj
 global influxdb_obj
 
-def central_get_mappings():
+def central_get_location_mappings():
+    global central_obj
+    # Sample API call using 'ArubaCentralBase.command()'
+    # GET groups from Aruba Central
+    apiPaths = { "all_campuses": "/visualrf_api/v1/campus?limit=100",
+                "campus_info": "/visualrf_api/v1/campus/{0}?limit=100",
+                "building_info": "/visualrf_api/v1/building/{0}?limit=100&units=FEET"           
+    }
+    
+    apiMethod = "GET"
+
+    campuses = central_obj.command(apiMethod=apiMethod,
+                                    apiPath=apiPaths["all_campuses"],
+                                    apiParams={})
+    
+    campuses = campuses['msg']
+    campus_dict = {}
+
+    for campus in campuses:
+        pprint(campus)
+    quit()
+    category_mappings = {}
+    for category in apiPaths.keys():
+        base_resp = central_obj.command(apiMethod=apiMethod,
+                                    apiPath=apiPaths[category],
+                                    apiParams={})
+        category_mappings[category] = base_resp['msg'].copy()
+
+    update_influxdb(category_mappings)
+
+def central_get_apprf_mappings():
     global central_obj
     # Sample API call using 'ArubaCentralBase.command()'
     # GET groups from Aruba Central
@@ -125,4 +155,4 @@ if __name__ == "__main__":
     central_obj = ArubaCentralBase(central_info=central_info,
                             ssl_verify=ssl_verify)
     
-    central_get_mappings()
+    central_get_apprf_mappings()
