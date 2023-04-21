@@ -119,34 +119,43 @@ class presenceExport():
         # Add Your code here to process data and handle transport/storage
         field_data = None
        # pdb.set_trace()
+        measurement = "ap_site_mapping"
         if (streaming_data['data']['event_type'] == "proximity"):
             for presence_event in streaming_data['data']['pa_proximity_event']['proximity']:
-                if presence_event['associated']:
+                #if presence_event['associated']:
                     ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
                     ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
                     sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
                     sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
-
+                    ap_serial = presence_event['device_id']
+                    #pdb.set_trace()
+                    query_str = f"select site from autogen.ap_site_mapping where ap_serial='{ap_serial}'"
+                    query = self.db_conn.query(query_str)
+                    #pdb.set_trace()
+                    if len(query) == 0:
+                            pprint("error in query")
+                            continue
+                    site = next(query.get_points())['site']
+                    #pdb.set_trace()
                     field_data = {
                         "ap_eth_mac": ap_mac,
-                        "device_id": presence_event['device_id'],
                         "rssi_val": presence_event['rssi_val'],
-                        "sta_eth_mac": sta_mac
+                        "client_mac": sta_mac
                     }
                     json_body = [{
                         "measurement": "presenceData",
                         "tags": {
-                            "topic": streaming_data['topic'],
                             "customer_id": streaming_data['customer_id'],
                             "type": "proximity",
-                            "device_mac": sta_mac
+                            "ap_serial": ap_serial,
+                            "site": site
                     },
                     "time": streaming_data['timestamp'],
                     "fields": field_data
                     }]
                     try:
                         result = self.db_conn.write_points(points=json_body, database='atm23')
-                        print(f'{sta_mac}')
+                        print(f'{ap_serial}')
                         print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
                         if result == False:
                             print("DB push failed!!!")
@@ -154,25 +163,33 @@ class presenceExport():
                         print(err)
         elif (streaming_data['data']['event_type'] == "rssi"):
             for presence_event in streaming_data['data']['pa_rssi_event']['rssi']:
-                if presence_event['associated']:
+                #if presence_event['associated']:
                     ap_byte_mac = base64.b64decode(presence_event['ap_eth_mac']['addr']).decode()
                     ap_mac = ":".join(ap_byte_mac[i:i+2] for i in range(0, len(ap_byte_mac), 2))
                     sta_byte_mac = base64.b64decode(presence_event['sta_eth_mac']['addr']).decode()
                     sta_mac = ":".join(sta_byte_mac[i:i+2] for i in range(0, len(sta_byte_mac), 2))
+                    ap_serial = presence_event['device_id']
+                    query_str = f"select site from autogen.ap_site_mapping where ap_serial='{ap_serial}'"
+                    query = self.db_conn.query(query_str)
+                    #pdb.set_trace()
+                    if len(query) == 0:
+                            pprint("error in query")
+                            continue
+                    site = next(query.get_points())['site']
+                    #pdb.set_trace()
                     field_data = {
                         "ap_eth_mac": ap_mac,
-                        "device_id": presence_event['device_id'],
                         "rssi_val": presence_event['rssi_val'],
-                        "sta_eth_mac": sta_mac,
+                        "client_mac": sta_mac,
                         "noise_floor": presence_event['noise_floor']
                     }
                     json_body = [{
                         "measurement": "presenceData",
                         "tags": {
-                            "topic": streaming_data['topic'],
                             "customer_id": streaming_data['customer_id'],
                             "type": "rssi",
-                            "device_mac": sta_mac 
+                            "ap_serial": ap_serial,
+                            "site": site
                         },
                         "time": streaming_data['timestamp'],
                         "fields": field_data
@@ -180,7 +197,7 @@ class presenceExport():
                     try:
                         result = self.db_conn.write_points(points=json_body, database='atm23')
                         #print(streaming_data['topic'] + streaming_data['data']['event_type'] + " Database write: "+ result)
-                        print(f'{sta_mac}')
+                        print(f'{ap_serial}')
                         print(f"{streaming_data['topic']} ({streaming_data['data']['event_type']}) - Database write: + {result}")
                         if result == False:
                             print("DB push failed!!!")
@@ -215,6 +232,102 @@ class monitoringExport():
         """
         streaming_data = self.decoder.decodeData(data)
         # Add Your code here to process data and handle transport/storage
+        json_body = []
+        measurement = "ap_monitoring"
+        query_str = f"select * from autogen.ap_site_mapping"
+        query = self.db_conn.query(query_str)
+        ap_site_mappings = list(query.get_points())
+        if self.db_conn and self.export_type == 'influxdb':
+            pdb.set_trace()
+            if ('radio_stats' in streaming_data['data']):
+                for device in streaming_data['data']['radio_stats']:
+                    if (device['device_id'] in [ap['ap_serial'] for ap in ap_site_mappings]):
+                        site_name = next((ap['site'] for ap in ap_site_mappings if ap["ap_serial"] == device['device_id']), False)
+                        if (site_name):
+                            field_data = {
+                                "measurement": measurement,
+                                "tags": {
+                                    "topic": "radio_stats",
+                                    "customer_id": streaming_data['customer_id'],
+                                    'ap_serial': device['device_id'],
+                                    'site': site_name
+                                },
+                                "time": int(device['timestamp']),
+                                "fields": {
+                                    'utilization': device['utilization']
+                                }
+                            }
+                            json_body.append(field_data)
+            if ('ssid_stats' in streaming_data['data']):
+                for device in streaming_data['data']['ssid_stats']:
+                    if (device['device_id'] in [ap['ap_serial'] for ap in ap_site_mappings]):
+                        site_name = next((ap['site'] for ap in ap_site_mappings if ap["ap_serial"] == device['device_id']), False)
+                        if (site_name):
+                            field_data = {
+                                "measurement": measurement,
+                                "tags": {
+                                    "topic": "ssid_stats",
+                                    "customer_id": streaming_data['customer_id'],
+                                    'ap_serial': device['device_id'],
+                                    'site': 'test'
+                                },
+                                "time": int(device['timestamp']),
+                                "fields": {
+                                    'tx_bytes': device['tx_bytes'],
+                                    'essid': base64.b64decode(device['essid']).decode()
+                                }
+                            }
+                            json_body.append(field_data)
+            if ('device_stats' in streaming_data['data']):
+                for device in streaming_data['data']['device_stats']:
+                    if (device['device_id'] in [ap['ap_serial'] for ap in ap_site_mappings]):
+                        site_name = next((ap['site'] for ap in ap_site_mappings if ap["ap_serial"] == device['device_id']), False)
+                        if (site_name):
+                            field_data = {
+                                "measurement": measurement,
+                                "tags": {
+                                    "topic": "device_stats",
+                                    "customer_id": streaming_data['customer_id'],
+                                    'ap_serial': device['device_id'],
+                                    'site': 'test'
+                                },
+                                "time": int(device['timestamp']),
+                                "fields": {
+                                    'cpu_utilization': device['cpu_utilization'],
+                                    'mem_utilization': device['mem_utilization'],
+                                }
+                            }
+                            json_body.append(field_data)
+            if ('interfaces' in streaming_data['data']):
+                for device in streaming_data['data']['interfaces']:
+                    if (device['device_id'] in [ap['ap_serial'] for ap in ap_site_mappings]):
+                        site_name = next((ap['site'] for ap in ap_site_mappings if ap["ap_serial"] == device['device_id']), False)
+                        if (site_name):
+                            field_data = {
+                                "measurement": measurement,
+                                "tags": {
+                                    "topic": "interfaces",
+                                    "customer_id": streaming_data['customer_id'],
+                                    'ap_serial': device['device_id'],
+                                    'site': 'test'
+                                },
+                                "time": int(device['timestamp']),
+                                "fields": {
+                                    'status': device['status'],
+                                }
+                            }
+                            json_body.append(field_data)
+
+        if json_body:
+            print(json_body)
+            try:
+                result = self.db_conn.write_points(points=json_body, database='atm23')
+                print(f"{streaming_data['topic']} - Database write: + {result}")
+                if result == False:
+                    print("DB push failed!!!")
+            except Exception as err:
+                print(err)
+
 
 class locationExport():
     def __init__(self, topic, export_type, db_conn):
@@ -235,16 +348,40 @@ class locationExport():
         streaming_data['data']['sta_eth_mac'] = readable_mac
         
         if self.db_conn and self.export_type == 'influxdb':
-            ## push data to influx
             json_body = [{
                 "measurement": "locationData",
                 "tags": {
                     "topic": streaming_data['topic'],
                     "customer_id": streaming_data['customer_id']
-                    },
+                },
                 "time": streaming_data['timestamp'], 
                 "fields": streaming_data['data']
                 }]
+            ## Convert data from Stream
+            query_measurement = 'building_mapping'
+            building_id = streaming_data['data']['building_id_string']
+            floor_id = streaming_data['data']['floor_id_string']
+            query_str = f"select building_name from autogen.{query_measurement} where building_id = '{building_id}'"
+            query = self.db_conn.query(query_str)
+            if len(query) == 0:
+                pprint("error in query")
+                return
+            name_str = next(query.get_points())['building_name']
+            streaming_data['data']['building_name'] = name_str
+            json_body[0]['tags'].update({'building_name': name_str})
+            query_str = f"select floor_name from autogen.{query_measurement} where floor_id = '{floor_id}'"
+            query = self.db_conn.query(query_str)
+            if len(query) == 0:
+                pprint("error in query")
+                return
+            name_str = next(query.get_points())['floor_name']
+            json_body[0]['tags'].update({'floor_name': name_str})
+            streaming_data['data']['floor_name'] = name_str
+            json_body[0]['tags'].update({'client_mac': streaming_data['data']['sta_eth_mac']})
+
+            ## push data to influx
+            
+            print(json_body)
             #pdb.set_trace()
             try:
                 result = self.db_conn.write_points(points=json_body, database='atm23')
@@ -300,12 +437,12 @@ class apprfExport():
                     appRFEntry.pop('client_mac')
                 if ('client_ip' in appRFEntry):
                     client_ip = '.'.join('%d' % byte for byte in base64.b64decode(appRFEntry['client_ip']['addr']))
+                    appRFEntry['client_ip'] = client_ip
                     tags['client_ip'] = client_ip
-                    appRFEntry.pop('client_ip')
                 if ('dest_ip' in appRFEntry):
                     dest_ip = '.'.join('%d' % byte for byte in base64.b64decode(appRFEntry['dest_ip']['addr']))
                     tags['dest_ip'] = dest_ip
-                    appRFEntry.pop('dest_ip')
+                    appRFEntry['dest_ip'] = dest_ip
                 # Convert ID mappings to VALUE strings
                 for key in self.mappings:
                     if key in appRFEntry.keys():
@@ -314,9 +451,10 @@ class apprfExport():
                         query = self.db_conn.query(query_str)
                         if len(query) == 0:
                             pprint("error in query")
-                            quit()
+                            continue
                         value = next(query.get_points())['value']
                         appRFEntry[key] = value
+                        tags[key] = value
                 json_body[0]["fields"] = appRFEntry
                 try:
                     result = self.db_conn.write_points(points=json_body, database='atm23', time_precision='s')
